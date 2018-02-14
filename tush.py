@@ -21,7 +21,7 @@ class program_generator(object):
 		elif stack == 'blueprint':
 			return ['blueprint', None]
 		
-	def generate_blocks(self, n, use_blueprints=False):
+	def generate_blocks(self, n, use_blueprints):
 		blocks = []
 		while len(blocks) < n:
 			block = self.generate_block()
@@ -29,11 +29,12 @@ class program_generator(object):
 		return blocks
 
 	def generate_program(self, n):
-		blocks = self.generate_blocks(n, use_blueprints=True)
+		blocks = self.generate_blocks(n, True)
 		for i, (typ, val) in enumerate(blocks):
 			if typ == 'blueprint':
-				blocks[i][1] = self.generate_blocks(random.randint(15,25), use_blueprints=False)
+				blocks[i][1] = self.generate_blocks(random.randint(15,25), False)
 		return blocks
+
 
 
 
@@ -49,7 +50,7 @@ class Tush(object):
 	def populate_input(self, program):
 		for stack, instr in program:
 			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
-				self.stacks[stack].insert(0, torch.autograd.Variable(instr))
+				self.stacks[stack].insert(0, torch.autograd.Variable(instr, requires_grad=False))
 			else: self.stacks[stack].insert(0, instr)
 
 	def stage_one(self, orig_program):
@@ -94,7 +95,7 @@ class Tush(object):
 		while self.stacks['exec']: self.execute_step()
 		return self
 
-	def pop_tensor(self, shape):
+	def get_tensor_out(self, shape):
 		required = int(utils.prod(shape))
 		for tensor in reversed(self.stacks['tensor']):
 			if int(utils.prod(tensor.shape)) < required: continue
