@@ -24,16 +24,9 @@ batches = {
 	'validation': make_batches(test_loader, [10]),
 }
 
-'''
-input_in = [['tensor', torch.ones([3,7])]]
-input_in_2 = [['tensor', torch.ones([2,16])+1]]
-
-print(ind.get_output(input_in, [10]))
-print(ind.get_output(input_in_2, [11]))
-'''
-
-
-loss_fn = lambda pred,target_idx: - torch.log(torch.nn.functional.softmax(pred)[target_idx])
+def loss_fn(pred, target_idx):
+	if pred is None or target_idx is None: return 2.32
+	return - torch.log(torch.nn.functional.softmax(pred)[target_idx])
 
 program = tush.program_generator().generate_program(100)
 ind = tush.Tush(program)

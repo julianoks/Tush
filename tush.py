@@ -49,14 +49,14 @@ class Tush(object):
 		program_stage_one, self.blueprint_vars = self.stage_one(program)
 		self.stage_two_stacks = self.stage_two(program_stage_one)
 		self.reg_strength = 0.001
-		self.out_dependent = True # whether we can output an item that independent of input
+		self.constraint = {'input': False, 'variable': False}
 
 	def populate_input(self, stacks, input_instructions):
 		for stack, instr in input_instructions:
 			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
 				item = torch.autograd.Variable(instr, requires_grad=False)
 			else: item = instr
-			stacks[stack].insert(0, {'val': item, 'input_dep': True})
+			stacks[stack].insert(0, {'val': item, 'input_dep': True, 'variable_dep': False})
 		return stacks
 
 	def stage_one(self, orig_program):
@@ -65,27 +65,28 @@ class Tush(object):
 		variables = []
 		for stack, instr in orig_program:
 			if stack != 'blueprint':
-				program.append([stack,instr])
+				program.append([stack,{'val': instr, 'input_dep': False, 'variable_dep': False}])
 			else:
 				out = Tush(instr)
-				out.out_dependent = False
+				out.constraint['input'] = False
+				out.constraint['variable'] = False
 				out = out.execute_program(out.stage_two_stacks)['tensor']
 				if not out: continue
 				else:
 					variables.append(torch.autograd.Variable(out[0]['val'].data, requires_grad=True))
-					program.append(['tensor', variables[-1]])
+					program.append(['tensor', {'val': variables[-1], 'input_dep': False, 'variable_dep': True}])
 		return program, variables
 
 	def stage_two(self, program_stage_one):
 		''' Populate stacks, mark as being independent of input '''
 		stacks = {stack: [] for stack in self.stack_types}
-		for stack, instr in program_stage_one:
-			stacks[stack].append({'val': instr, 'input_dep': False})
+		for stack, item in program_stage_one:
+			stacks[stack].append(item)
 		return stacks
 
 	def execute_step(self, stacks):
 		exec_item = stacks['exec'].pop(0)
-		instr, instr_dep = exec_item['val'], exec_item['input_dep']
+		instr, instr_inp_dep, instr_var_dep = exec_item['val'], exec_item['input_dep'], exec_item['variable_dep']
 		inputs = []
 		in_types = Instructions[instr]['in_types']
 		def put_back():
@@ -93,7 +94,7 @@ class Tush(object):
 				if t != 'stacks': stacks[t].insert(0,i)
 		for needed in in_types:
 			if needed == 'stacks':
-				inputs.append({'val': stacks, 'input_dep': False}) # stacks objects is nominally independent of input
+				inputs.append({'val': stacks, 'input_dep': False, 'variable_dep': False}) # stacks object is nominally independent
 				continue
 			if not stacks[needed]:
 				put_back()
@@ -101,8 +102,9 @@ class Tush(object):
 			inputs.append(stacks[needed].pop(0))
 		try:
 			out = Instructions[instr]['fn'](*[i['val'] for i in inputs])
-			dependent = any([i['input_dep'] for i in inputs]) or instr_dep
-			stacks[Instructions[instr]['out_type']].append({'val': out, 'input_dep': dependent})
+			inp_dep = any([i['input_dep'] for i in inputs]) or instr_inp_dep
+			var_dep = any([i['variable_dep'] for i in inputs]) or instr_var_dep
+			stacks[Instructions[instr]['out_type']].append({'val': out, 'input_dep': inp_dep, 'variable_dep': var_dep})
 		except (ValueError, RuntimeError):
 			put_back()
 		return stacks
@@ -115,8 +117,9 @@ class Tush(object):
 		if shape is None: return stacks # for if loss fn wants to retrieve values directly
 		required = int(utils.prod(shape))
 		for item in reversed(stacks['tensor']):
-			tensor, dependent = item['val'], item['input_dep']
-			if self.out_dependent and not dependent: continue
+			tensor, inp_dep, var_dep = item['val'], item['input_dep'], item['variable_dep']
+			if self.constraint['input'] and not inp_dep: continue
+			if self.constraint['variable'] and not var_dep: continue
 			if int(utils.prod(tensor.shape)) < required: continue
 			return tensor.view(-1)[:required].view(shape)
 		return None
@@ -128,7 +131,7 @@ class Tush(object):
 		return self.get_tensor_out(stacks, output_shape)
 
 	def get_outputs(self, x_yshape_pairs):
-		return [self.get_output(*pair) for pair in x_yshape_pairs]
+		return [self.get_output(x,yshape) for x,yshape in x_yshape_pairs]
 
 	def get_loss(self, x_yshape_pairs, ys, loss_fn):
 		''' average data loss '''
@@ -153,7 +156,7 @@ class Tush(object):
 			there are side effects, namely that the blueprint variables will be optimized
 		'''
 		if self.blueprint_vars:
-			optimizer = torch.optim.SGD(self.blueprint_vars, lr=0.1, momentum=0.9)
+			optimizer = torch.optim.SGD(self.blueprint_vars, lr=0.001, momentum=0.9)
 			for i, (xs, ys) in enumerate(train_batch):
 				optimizer.zero_grad()
 				loss = self.get_loss(xs, ys, loss_fn) # data loss
