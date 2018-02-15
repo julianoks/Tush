@@ -20,7 +20,7 @@ def make_batches(loader, shape, max_batches=None):
 	return batch
 
 batches = {
-	'train': make_batches(train_loader, [10], max_batches=1000),
+	'train': make_batches(train_loader, [10], max_batches=10000),
 	'validation': make_batches(test_loader, [10]),
 }
 

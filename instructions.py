@@ -3,7 +3,7 @@ import utils
 
 def get_shape(stacks):
 	if stacks['tensor']:
-		return stacks['tensor'][0].shape
+		return stacks['tensor'][0]['val'].shape
 	raise ValueError
 
 Instructions = {
