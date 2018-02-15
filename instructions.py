@@ -75,7 +75,7 @@ Instruction_probabilities = {
 	'matmul': 15,
 	'add': 15,
 	'relu': 10,
-	'folded_normal': 1,
+	'folded_normal': 10,
 	'uniform': 1,
 	'get_shape': 2,
 	'shape_1d': 0.75,

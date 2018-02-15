@@ -5,11 +5,11 @@ import utils
 import random
 
 class program_generator(object):
-	def __init__(self, probs=None):
+	def __init__(self, type_probs=None):
 		''' Setup probabilities for selecting from each stack type, and instructions for exec stack. '''
-		default_type_probs = {'exec': 5, 'integer': 2, 'blueprint': 1}
-		if probs is None: probs = default_type_probs
-		self.type_sampler = utils.random_sampler(probs)
+		default_type_probs = {'exec': 5, 'integer': 2, 'blueprint': 3}
+		if type_probs is None: type_probs = default_type_probs
+		self.type_sampler = utils.random_sampler(type_probs)
 		self.instruction_sampler = utils.random_sampler(instructions.Instruction_probabilities)
 
 	def generate_block(self):
@@ -25,16 +25,16 @@ class program_generator(object):
 		blocks = []
 		while len(blocks) < n:
 			block = self.generate_block()
-			if use_blueprints or block[0] != 'blueprint': blocks.append(block)
+			if use_blueprints or block[0] != 'blueprint':
+				blocks.append(block)
 		return blocks
 
 	def generate_program(self, n):
 		blocks = self.generate_blocks(n, True)
-		for i, (typ, val) in enumerate(blocks):
-			if typ == 'blueprint':
+		for i, (stack, val) in enumerate(blocks):
+			if stack == 'blueprint':
 				blocks[i][1] = self.generate_blocks(random.randint(15,25), False)
 		return blocks
-
 
 
 
@@ -42,9 +42,9 @@ class program_generator(object):
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		self.hyperparams = {'learning_rate': 0.01, 'steps': 500}
 		program_stage_one, self.blueprint_vars = self.stage_one(program)
 		self.stage_two_stacks = self.stage_two(program_stage_one)
+		self.reg_strength = 0.001
 
 	def populate_input(self, stacks, input_instructions):
 		for stack, instr in input_instructions:
@@ -55,16 +55,18 @@ class Tush(object):
 
 	def stage_one(self, orig_program):
 		''' Replace blueprints with variables '''
-		program = utils.copy_w_vars(orig_program)
+		program = []
 		variables = []
-		for i, (stack, instr) in reversed(list(enumerate(program))):
-			if stack != 'blueprint': continue
-			out = Tush(instr)
-			out = out.execute_program(out.stage_two_stacks)['tensor']
-			if not out: program.pop(i)
+		for stack, instr in orig_program:
+			if stack != 'blueprint':
+				program.append([stack,instr])
 			else:
-				program[i] = ['tensor', torch.autograd.Variable(out[0].data, requires_grad=True)]
-				variables.append(program[i][1])
+				out = Tush(instr)
+				out = out.execute_program(out.stage_two_stacks)['tensor']
+				if not out: continue
+				else:
+					variables.append(torch.autograd.Variable(out[0].data, requires_grad=True))
+					program.append(['tensor', variables[-1]])
 		return program, variables
 
 	def stage_two(self, program_stage_one):
@@ -118,7 +120,34 @@ class Tush(object):
 		return [self.get_output(*pair) for pair in x_yshape_pairs]
 
 	def get_loss(self, x_yshape_pairs, ys, loss_fn):
+		''' average data loss '''
 		y_hats = self.get_outputs(x_yshape_pairs)
-		loss = sum([loss_fn(y_hat, y) for yhat, y in zip(y_hats, ys)])
+		loss = sum([loss_fn(y_hat, y) for y_hat, y in zip(y_hats, ys)])
 		loss /= len(ys)
-		return loss
+		return loss		
+
+	def optimize(self, train_batch, loss_fn, validation_batch=None):
+		'''
+		args:
+			train_batch - a list of (x,y) pairs such that
+							x is a pair of (program_input, output_shape) and
+							y is list of target, such that
+								program_input is a list of instructions
+								output_shape gives the shape to extract from the tensor stack
+			loss_fn - loss function with two inputs: (predicted, target) -> data_loss
+			validation_batch - optional dataset in the same format as batches, on which to run and return the validation loss
+		returns:
+			if validation_batch is used, then returns data loss on the validation data.
+		note:
+			there are side effects, namely that the blueprint variables will be optimized
+		'''
+		optimizer = torch.optim.SGD(self.blueprint_vars, lr = 0.01, momentum=0.9)
+		for i, (xs, ys) in enumerate(train_batch):
+			optimizer.zero_grad()
+			loss = self.get_loss(xs, ys, loss_fn) # data loss
+			if 0==i%50: print("\nStep:", i, "\nData Loss:", loss)
+			loss += self.reg_strength * sum([(x**2).view(-1).sum() for x in self.blueprint_vars]) # reg. loss
+			loss.backward()
+			optimizer.step()
+		if validation_batch:
+			return sum([self.get_loss(xs, ys, loss_fn) for xs,ys in validation_batch]) / len(validation_batch)
