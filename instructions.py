@@ -1,9 +1,9 @@
 import torch
 import utils
 
-def get_shape(self):
-	if self.stacks['tensor']:
-		return self.stacks['tensor'][0].shape
+def get_shape(stacks):
+	if stacks['tensor']:
+		return stacks['tensor'][0].shape
 	raise ValueError
 
 Instructions = {
@@ -39,7 +39,7 @@ Instructions = {
 	},
 
 	'get_shape': {
-		'in_types': ['self'],
+		'in_types': ['stacks'],
 		'out_type': 'shape',
 		'fn': get_shape
 	},
@@ -72,10 +72,10 @@ Instructions = {
 
 
 Instruction_probabilities = {
-	'matmul': 5,
-	'add': 5,
-	'relu': 3,
-	'folded_normal': 2,
+	'matmul': 15,
+	'add': 15,
+	'relu': 10,
+	'folded_normal': 1,
 	'uniform': 1,
 	'get_shape': 2,
 	'shape_1d': 0.75,

@@ -1,4 +1,5 @@
-import random
+import torch
+import random, copy
 from functools import reduce
 
 class random_sampler(object):
@@ -22,3 +23,15 @@ class random_sampler(object):
 			if v>x: return k
 
 prod = lambda vec: reduce(lambda x1,x2: x1*x2, vec)
+
+def copy_w_vars(obj):
+	if type(obj) == type({}):
+		return dict(copy_w_vars(list(obj.items())))
+	elif type(obj) == type([]):
+		return list([copy_w_vars(x) for x in obj])
+	elif type(obj) == type(()):
+		return tuple([copy_w_vars(x) for x in obj])
+	elif type(obj) == torch.autograd.variable.Variable:
+		return obj
+	else: return copy.copy(obj)
+

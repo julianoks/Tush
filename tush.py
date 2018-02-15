@@ -2,7 +2,7 @@ import torch
 import instructions
 from instructions import Instructions
 import utils
-import random, copy
+import random
 
 class program_generator(object):
 	def __init__(self, probs=None):
@@ -41,25 +41,26 @@ class program_generator(object):
 
 class Tush(object):
 	def __init__(self, program):
-		stacks = ['exec', 'tensor', 'shape', 'integer']
-		self.stacks = {stack: [] for stack in stacks}
+		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
 		self.hyperparams = {'learning_rate': 0.01, 'steps': 500}
 		program_stage_one, self.blueprint_vars = self.stage_one(program)
-		self.stage_two(program_stage_one)
+		self.stage_two_stacks = self.stage_two(program_stage_one)
 
-	def populate_input(self, program):
-		for stack, instr in program:
+	def populate_input(self, stacks, input_instructions):
+		for stack, instr in input_instructions:
 			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
-				self.stacks[stack].insert(0, torch.autograd.Variable(instr, requires_grad=False))
-			else: self.stacks[stack].insert(0, instr)
+				stacks[stack].insert(0, torch.autograd.Variable(instr, requires_grad=False))
+			else: stacks[stack].insert(0, instr)
+		return stacks
 
 	def stage_one(self, orig_program):
 		''' Replace blueprints with variables '''
-		program = copy.deepcopy(orig_program)
+		program = utils.copy_w_vars(orig_program)
 		variables = []
 		for i, (stack, instr) in reversed(list(enumerate(program))):
 			if stack != 'blueprint': continue
-			out = Tush(instr).execute_program().stacks['tensor']
+			out = Tush(instr)
+			out = out.execute_program(out.stage_two_stacks)['tensor']
 			if not out: program.pop(i)
 			else:
 				program[i] = ['tensor', torch.autograd.Variable(out[0].data, requires_grad=True)]
@@ -68,36 +69,56 @@ class Tush(object):
 
 	def stage_two(self, program_stage_one):
 		''' Populate stacks '''
+		stacks = {stack: [] for stack in self.stack_types}
 		for stack, instr in program_stage_one:
-			self.stacks[stack].append(instr)
+			stacks[stack].append(instr)
+		return stacks
 
-	def execute_step(self):
-		instr = self.stacks['exec'].pop(0)
+	def execute_step(self, stacks):
+		instr = stacks['exec'].pop(0)
 		inputs = []
 		in_types = Instructions[instr]['in_types']
 		def put_back():
 			for i,t in reversed(list(zip(inputs, in_types[:len(inputs)]))):
-				if t != 'self': self.stacks[t].insert(0,i)
+				if t != 'stacks': stacks[t].insert(0,i)
 		for needed in in_types:
-			if needed == 'self':
-				inputs.append(self)
+			if needed == 'stacks':
+				inputs.append(stacks)
 				continue
-			if not self.stacks[needed]:
+			if not stacks[needed]:
 				put_back()
-				return
-			inputs.append(self.stacks[needed].pop(0))
+				return stacks
+			inputs.append(stacks[needed].pop(0))
 		try:
 			out = Instructions[instr]['fn'](*inputs)
-			self.stacks[Instructions[instr]['out_type']].append(out)
-		except (ValueError, RuntimeError): put_back()
+			stacks[Instructions[instr]['out_type']].append(out)
+		except (ValueError, RuntimeError):
+			put_back()
+		return stacks
 
-	def execute_program(self):
-		while self.stacks['exec']: self.execute_step()
-		return self
+	def execute_program(self, stacks):
+		while stacks['exec']: stacks = self.execute_step(stacks)
+		return stacks
 
-	def get_tensor_out(self, shape):
+	def get_tensor_out(self, stacks, shape):
+		if shape is None: return stacks # for if loss fn wants to retrieve values directly
 		required = int(utils.prod(shape))
-		for tensor in reversed(self.stacks['tensor']):
+		for tensor in reversed(stacks['tensor']):
 			if int(utils.prod(tensor.shape)) < required: continue
 			return tensor.view(-1)[:required].view(shape)
 		return None
+
+	def get_output(self, input_instructions, output_shape):
+		stacks = utils.copy_w_vars(self.stage_two_stacks)
+		stacks = self.populate_input(stacks, input_instructions)
+		stacks = self.execute_program(stacks)
+		return self.get_tensor_out(stacks, output_shape)
+
+	def get_outputs(self, x_yshape_pairs):
+		return [self.get_output(*pair) for pair in x_yshape_pairs]
+
+	def get_loss(self, x_yshape_pairs, ys, loss_fn):
+		y_hats = self.get_outputs(x_yshape_pairs)
+		loss = sum([loss_fn(y_hat, y) for yhat, y in zip(y_hats, ys)])
+		loss /= len(ys)
+		return loss
