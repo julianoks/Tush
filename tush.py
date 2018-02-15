@@ -10,12 +10,16 @@ class program_generator(object):
 		default_type_probs = {'exec': 5, 'integer': 2, 'blueprint': 3}
 		if type_probs is None: type_probs = default_type_probs
 		self.type_sampler = utils.random_sampler(type_probs)
-		self.instruction_sampler = utils.random_sampler(instructions.Instruction_probabilities)
+		self.stochastic_instruction_sampler = utils.random_sampler(instructions.Instruction_probabilities)
+		determ_probs = dict(filter(lambda x: not instructions.Instructions[x[0]]['stochastic'], instructions.Instruction_probabilities.items()))
+		self.deterministic_instruction_sampler = utils.random_sampler(determ_probs)
 
-	def generate_block(self):
+
+	def generate_block(self, in_blueprint):
 		stack = self.type_sampler.pick_event()
 		if stack == 'exec': 
-			return ['exec', self.instruction_sampler.pick_event()]
+			if in_blueprint: return ['exec', self.stochastic_instruction_sampler.pick_event()]
+			else: return ['exec', self.deterministic_instruction_sampler.pick_event()]
 		elif stack == 'integer':
 			return ['integer', 2**random.randint(0,6)]
 		elif stack == 'blueprint':
@@ -24,7 +28,7 @@ class program_generator(object):
 	def generate_blocks(self, n, use_blueprints):
 		blocks = []
 		while len(blocks) < n:
-			block = self.generate_block()
+			block = self.generate_block(not use_blueprints)
 			if use_blueprints or block[0] != 'blueprint':
 				blocks.append(block)
 		return blocks
@@ -131,9 +135,9 @@ class Tush(object):
 		y_hats = self.get_outputs(x_yshape_pairs)
 		loss = sum([loss_fn(y_hat, y) for y_hat, y in zip(y_hats, ys)])
 		loss /= len(ys)
-		return loss		
+		return loss
 
-	def optimize(self, train_batch, loss_fn, validation_batch=None, lr=0.05):
+	def optimize(self, train_batch, loss_fn, validation_batch=None):
 		'''
 		args:
 			train_batch - a list of (x,y) pairs such that
@@ -148,13 +152,15 @@ class Tush(object):
 		note:
 			there are side effects, namely that the blueprint variables will be optimized
 		'''
-		optimizer = torch.optim.SGD(self.blueprint_vars, lr=lr, momentum=0.9)
-		for i, (xs, ys) in enumerate(train_batch):
-			optimizer.zero_grad()
-			loss = self.get_loss(xs, ys, loss_fn) # data loss
-			if 0==i%250: print("\nStep:", i, "\nData Loss:", loss)
-			loss += self.reg_strength * sum([(x**2).view(-1).sum() for x in self.blueprint_vars]) # reg. loss
-			loss.backward()
-			optimizer.step()
+		if self.blueprint_vars:
+			optimizer = torch.optim.SGD(self.blueprint_vars, lr=0.1, momentum=0.9)
+			for i, (xs, ys) in enumerate(train_batch):
+				optimizer.zero_grad()
+				loss = self.get_loss(xs, ys, loss_fn) # data loss
+				if 0==i%250: print("\nStep:", i, "\nData Loss:", loss)
+				loss += self.reg_strength * sum([(x**2).view(-1).sum() for x in self.blueprint_vars]) # reg. loss
+				loss.backward()
+				optimizer.step()
+		else: print("No variables to optimize! No optimization took place!")
 		if validation_batch:
 			return sum([self.get_loss(xs, ys, loss_fn) for xs,ys in validation_batch]) / len(validation_batch)
