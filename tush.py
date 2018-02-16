@@ -1,54 +1,13 @@
 import torch
-import instructions
 from instructions import Instructions
 import utils
-import random
-
-class program_generator(object):
-	def __init__(self, type_probs=None):
-		''' Setup probabilities for selecting from each stack type, and instructions for exec stack. '''
-		default_type_probs = {'exec': 5, 'integer': 2, 'blueprint': 3}
-		if type_probs is None: type_probs = default_type_probs
-		self.type_sampler = utils.random_sampler(type_probs)
-		self.stochastic_instruction_sampler = utils.random_sampler(instructions.Instruction_probabilities)
-		determ_probs = dict(filter(lambda x: not instructions.Instructions[x[0]]['stochastic'], instructions.Instruction_probabilities.items()))
-		self.deterministic_instruction_sampler = utils.random_sampler(determ_probs)
-
-
-	def generate_block(self, in_blueprint):
-		stack = self.type_sampler.pick_event()
-		if stack == 'exec': 
-			if in_blueprint: return ['exec', self.stochastic_instruction_sampler.pick_event()]
-			else: return ['exec', self.deterministic_instruction_sampler.pick_event()]
-		elif stack == 'integer':
-			return ['integer', 2**random.randint(0,6)]
-		elif stack == 'blueprint':
-			return ['blueprint', None]
-		
-	def generate_blocks(self, n, use_blueprints):
-		blocks = []
-		while len(blocks) < n:
-			block = self.generate_block(not use_blueprints)
-			if use_blueprints or block[0] != 'blueprint':
-				blocks.append(block)
-		return blocks
-
-	def generate_program(self, n):
-		blocks = self.generate_blocks(n, True)
-		for i, (stack, val) in enumerate(blocks):
-			if stack == 'blueprint':
-				blocks[i][1] = self.generate_blocks(random.randint(15,25), False)
-		return blocks
-
-
-
 
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 		self.reg_strength = 0.001
-		self.constraint = {'input': False, 'variable': False}
+		self.constraint = {'input': True, 'variable': False}
+		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 
 	def populate_input(self, stacks, input_instructions):
 		for stack, instr in input_instructions:
