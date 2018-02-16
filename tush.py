@@ -5,7 +5,7 @@ import utils
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		self.reg_strength = 0.001
+		self.reg_strength = 0#0.001
 		self.constraint = {'input': True, 'variable': True}
 		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 
@@ -76,6 +76,7 @@ class Tush(object):
 			if self.constraint['variable'] and not var_dep: continue
 			if int(utils.prod(tensor.shape)) < required: continue
 			return tensor.view(-1)[:required].view(shape)
+		print("NO VALID OUTPUT")
 		return torch.Variable(torch.ones(shape)) # if no valid output, return ones, so as to maximize entropy
 
 	def get_output(self, input_instructions, output_shape):
@@ -110,11 +111,11 @@ class Tush(object):
 			there are side effects, namely that the blueprint variables will be optimized
 		'''
 		if self.blueprint_vars:
-			optimizer = torch.optim.SGD(self.blueprint_vars, lr=0.001, momentum=0.9)
+			optimizer = torch.optim.SGD(self.blueprint_vars, lr=0.1, momentum=0.9)
 			for i, (xs, ys) in enumerate(train_batch):
 				optimizer.zero_grad()
 				loss = self.get_loss(xs, ys, loss_fn) # data loss
-				if 0==i%250: print("\nStep:", i, "\nData Loss:", loss)
+				if 0==i%250: print("\nStep:", i, "\nData Loss:", loss); print(self.stage_one_stacks)
 				loss += self.reg_strength * sum([(x**2).view(-1).sum() for x in self.blueprint_vars]) # reg. loss
 				loss.backward()
 				optimizer.step()

@@ -6,6 +6,11 @@ def get_shape(stacks):
 		return stacks['tensor'][0]['val'].shape
 	raise ValueError
 
+def duplicate(stacks, stack_name):
+	if stacks[stack_name]:
+		stacks[stack_name].append(stacks[stack_name][0])
+	raise ValueError
+
 Instructions = {
 	
 	'matmul': {
@@ -78,6 +83,34 @@ Instructions = {
 		'stochastic': False
 	},
 
+	'dup_exec': {
+		'in_types': ['stacks'],
+		'out_type': 'exec',
+		'fn': lambda stacks: duplicate(stacks, 'exec'),
+		'stochastic': False
+	},
+
+	'dup_tensor': {
+		'in_types': ['stacks'],
+		'out_type': 'exec',
+		'fn': lambda stacks: duplicate(stacks, 'tensor'),
+		'stochastic': False
+	},
+
+	'dup_shape': {
+		'in_types': ['stacks'],
+		'out_type': 'exec',
+		'fn': lambda stacks: duplicate(stacks, 'shape'),
+		'stochastic': False
+	},
+
+	'dup_integer': {
+		'in_types': ['stacks'],
+		'out_type': 'exec',
+		'fn': lambda stacks: duplicate(stacks, 'integer'),
+		'stochastic': False
+	},
+
 }
 
 
@@ -92,4 +125,8 @@ Instruction_probabilities = {
 	'shape_2d': 0.75,
 	'shape_3d': 0.75,
 	'shape_4d': 0.75,
+	'dup_exec': 5,
+	'dup_tensor': 5,
+	'dup_shape': 5,
+	'dup_integer': 5,
 }

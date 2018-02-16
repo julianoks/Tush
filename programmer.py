@@ -7,7 +7,7 @@ class program_generator(object):
 		'instructions': instructions.Instructions,
 		'instruction_probs': instructions.Instruction_probabilities,
 		'integer_generator': lambda : 2**random.randint(0,6),
-		'blueprint_size': lambda : random.randint(15,25)
+		'blueprint_size': lambda : 28 #random.randint(15,25)
 	}
 
 	def __init__(self, type_probs=None):
