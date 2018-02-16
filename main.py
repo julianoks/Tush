@@ -25,7 +25,6 @@ batches = {
 }
 
 def loss_fn(pred, target_idx):
-	if pred is None or target_idx is None: return 2.32
 	return - torch.log(torch.nn.functional.softmax(pred)[target_idx])
 
 program = program.program_generator().generate_program(100)

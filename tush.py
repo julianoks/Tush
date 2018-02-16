@@ -6,7 +6,7 @@ class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
 		self.reg_strength = 0.001
-		self.constraint = {'input': True, 'variable': False}
+		self.constraint = {'input': True, 'variable': True}
 		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 
 	def populate_input(self, stacks, input_instructions):
@@ -14,7 +14,7 @@ class Tush(object):
 			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
 				item = torch.autograd.Variable(instr, requires_grad=False)
 			else: item = instr
-			stacks[stack].insert(0, {'val': item, 'input_dep': True, 'variable_dep': False})
+			stacks[stack].insert(0, {'val': item, 'input_dep': True, 'variable_dep': True})
 		return stacks
 
 	def stage_one(self, orig_program):
@@ -76,7 +76,7 @@ class Tush(object):
 			if self.constraint['variable'] and not var_dep: continue
 			if int(utils.prod(tensor.shape)) < required: continue
 			return tensor.view(-1)[:required].view(shape)
-		return None
+		return torch.Variable(torch.ones(shape)) # if no valid output, return ones, so as to maximize entropy
 
 	def get_output(self, input_instructions, output_shape):
 		stacks = utils.copy_w_vars(self.stage_one_stacks)
