@@ -25,11 +25,11 @@ class random_sampler(object):
 prod = lambda vec: reduce(lambda x1,x2: x1*x2, vec)
 
 def copy_w_vars(obj):
-	if type(obj) == type({}):
+	if type(obj) == dict:
 		return dict(copy_w_vars(list(obj.items())))
-	elif type(obj) == type([]):
+	elif type(obj) == list:
 		return list([copy_w_vars(x) for x in obj])
-	elif type(obj) == type(()):
+	elif type(obj) == tuple:
 		return tuple([copy_w_vars(x) for x in obj])
 	elif type(obj) == torch.autograd.variable.Variable:
 		return obj
