@@ -46,8 +46,7 @@ class program_generator(object):
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		program_stage_one, self.blueprint_vars = self.stage_one(program)
-		self.stage_two_stacks = self.stage_two(program_stage_one)
+		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 		self.reg_strength = 0.001
 		self.constraint = {'input': False, 'variable': False}
 
@@ -70,19 +69,15 @@ class Tush(object):
 				out = Tush(instr)
 				out.constraint['input'] = False
 				out.constraint['variable'] = False
-				out = out.execute_program(out.stage_two_stacks)['tensor']
+				out = out.execute_program(out.stage_one_stacks)['tensor']
 				if not out: continue
 				else:
 					variables.append(torch.autograd.Variable(out[0]['val'].data, requires_grad=True))
 					program.append(['tensor', {'val': variables[-1], 'input_dep': False, 'variable_dep': True}])
-		return program, variables
-
-	def stage_two(self, program_stage_one):
-		''' Populate stacks, mark as being independent of input '''
 		stacks = {stack: [] for stack in self.stack_types}
-		for stack, item in program_stage_one:
+		for stack, item in program:
 			stacks[stack].append(item)
-		return stacks
+		return stacks, variables
 
 	def execute_step(self, stacks):
 		exec_item = stacks['exec'].pop(0)
@@ -125,7 +120,7 @@ class Tush(object):
 		return None
 
 	def get_output(self, input_instructions, output_shape):
-		stacks = utils.copy_w_vars(self.stage_two_stacks)
+		stacks = utils.copy_w_vars(self.stage_one_stacks)
 		stacks = self.populate_input(stacks, input_instructions)
 		stacks = self.execute_program(stacks)
 		return self.get_tensor_out(stacks, output_shape)
