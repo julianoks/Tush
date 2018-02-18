@@ -16,7 +16,14 @@ Instructions = {
 	'matmul': {
 		'in_types': ['tensor', 'tensor'],
 		'out_type': 'tensor',
-		'fn': lambda a,b: torch.mm(a,b),
+		'fn': lambda a,b: torch.matmul(a,b),
+		'stochastic': False
+	},
+
+	'matmul_backward': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.matmul(b,a),
 		'stochastic': False
 	},
 
@@ -115,7 +122,8 @@ Instructions = {
 
 
 Instruction_probabilities = {
-	'matmul': 15,
+	'matmul': 10,
+	'matmul_backward': 10,
 	'add': 15,
 	'relu': 10,
 	'folded_normal': 15,

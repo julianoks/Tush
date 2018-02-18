@@ -5,14 +5,14 @@ import utils
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		self.reg_strength = 0#0.001
+		self.reg_strength = 0.0001
 		self.constraint = {'input': True, 'variable': True}
 		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 
 	def populate_input(self, stacks, input_instructions):
 		for stack, instr in input_instructions:
 			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
-				item = torch.autograd.Variable(instr, requires_grad=False)
+				item = torch.autograd.Variable(instr, requires_grad=True) # does not actually require grad, but turned on for debugging
 			else: item = instr
 			stacks[stack].insert(0, {'val': item, 'input_dep': True, 'variable_dep': True})
 		return stacks
@@ -67,17 +67,22 @@ class Tush(object):
 		while stacks['exec']: stacks = self.execute_step(stacks)
 		return stacks
 
-	def get_tensor_out(self, stacks, shape):
-		if shape is None: return stacks # for if loss fn wants to retrieve values directly
-		required = int(utils.prod(shape))
+	def get_tensor_out(self, stacks, shape, con_inp=None, con_var=None):
+		if con_inp is None: con_inp = self.constraint['input']
+		if con_var is None: con_var = self.constraint['variable']
 		for item in reversed(stacks['tensor']):
 			tensor, inp_dep, var_dep = item['val'], item['input_dep'], item['variable_dep']
-			if self.constraint['input'] and not inp_dep: continue
-			if self.constraint['variable'] and not var_dep: continue
-			if int(utils.prod(tensor.shape)) < required: continue
-			return tensor.view(-1)[:required].view(shape)
-		print("NO VALID OUTPUT")
-		return torch.Variable(torch.ones(shape)) # if no valid output, return ones, so as to maximize entropy
+			if con_inp and not inp_dep: continue
+			if con_var and not var_dep: continue
+			if len(shape) > len(tensor.shape): continue
+			if not all([a<=b for a,b in zip(shape, tensor.shape[:len(shape)])]): continue
+			out = tensor # drop last indices, to have same num dims as shape
+			for i, l in enumerate(shape): out = out.narrow(i,0,l)
+			for i in range(len(shape), len(tensor.shape)): out = out.narrow(i,0,1)
+			return out
+		if con_inp or con_var:
+			return self.get_tensor_out(stacks, shape, con_inp=False, con_var=False)
+		return torch.autograd.Variable(torch.ones(shape)) # if no valid output, return ones, so as to maximize entropy
 
 	def get_output(self, input_instructions, output_shape):
 		stacks = utils.copy_w_vars(self.stage_one_stacks)
@@ -111,11 +116,11 @@ class Tush(object):
 			there are side effects, namely that the blueprint variables will be optimized
 		'''
 		if self.blueprint_vars:
-			optimizer = torch.optim.SGD(self.blueprint_vars, lr=0.1, momentum=0.9)
+			optimizer = torch.optim.Adam(self.blueprint_vars, lr=0.001)
 			for i, (xs, ys) in enumerate(train_batch):
 				optimizer.zero_grad()
 				loss = self.get_loss(xs, ys, loss_fn) # data loss
-				if 0==i%250: print("\nStep:", i, "\nData Loss:", loss); print(self.stage_one_stacks)
+				if 0==i%500: print("\nStep:", i, "\nData Loss:", loss); print(self.blueprint_vars)
 				loss += self.reg_strength * sum([(x**2).view(-1).sum() for x in self.blueprint_vars]) # reg. loss
 				loss.backward()
 				optimizer.step()
