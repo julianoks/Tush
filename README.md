@@ -27,7 +27,7 @@ To initialize a program generator, we pass as an argument the probabilies for pr
 
 When generating a program, once an item's type is selected, we produce the item's value according to:
 - `integer` is generated using such a generator: ```lambda : 2**random.randint(0,6)```
-- `exec` is produced by sampling instructions proportional to their (instruction probabilities)[https://github.com/julianoks/Tush/blob/master/instructions.py#L124]
+- `exec` is produced by sampling instructions proportional to their [instruction probabilities](https://github.com/julianoks/Tush/blob/master/instructions.py#L124)
 - `blueprint` is produced using the same logic to generate a program, but does not contain other blueprints. Each blueprint contains 15-25 items, as defined in [`blueprint_size`](https://github.com/julianoks/Tush/blob/master/programmer.py#L10)
 
 
@@ -36,3 +36,18 @@ An example of producing a program with 50 items:
 generator = program_generator({'exec': 5, 'integer': 2, 'blueprint': 3}})
 program = generator.generate_program(50)
 ```
+
+
+# Execution of Tush Program
+A Tush program has three stages:
+- **stage one** maps a Tush program to a collection of stacks
+- **stage two** is a training phase that optimizes some Variables
+- **stage three** the stacks have been optimized, and the program can be queried
+
+### Stage One
+The goal of stage one is to map a Tush program to a collection of stacks.
+
+First, we map each blueprint to a tensor Variable. This is done by executing the blueprint's value (which is a program) in a "fresh" stack, and picking the top tensor off the tensor stack. It is then marked as a Variable to be optimized.
+
+At this point, we have a list of items, without blueprints. We finally place each item's `value` on its corresponding stack, as marked by the item's `type`. Along with the value, we also indicate whether it is dependent on an input, and whether it's dependent on a Variable. Both of these indications are set to false during this stage, except for Variables produced from blueprints, which are marked as dependent on a Variable.
+
