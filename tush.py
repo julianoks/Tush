@@ -12,9 +12,9 @@ class Tush(object):
 	def populate_input(self, stacks, input_instructions):
 		for stack, instr in input_instructions:
 			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
-				item = torch.autograd.Variable(instr, requires_grad=True) # does not actually require grad, but turned on for debugging
-			else: item = instr
-			stacks[stack].insert(0, {'val': item, 'input_dep': True, 'variable_dep': True})
+				val = torch.autograd.Variable(instr, requires_grad=True) # does not actually require grad, but turned on for debugging
+			else: val = instr
+			stacks[stack].insert(0, {'val': val, 'input_dep': True, 'variable_dep': False})
 		return stacks
 
 	def stage_one(self, orig_program):
