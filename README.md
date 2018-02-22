@@ -40,7 +40,7 @@ program = generator.generate_program(50)
 
 # Execution of Tush Program
 A Tush program has three stages:
-- **stage one** maps a Tush program to a collection of stacks
+- **stage one** maps a Tush program to a collection of stacks, and replaces blueprints with tensor Variables
 - **stage two** is a training phase that optimizes some Variables
 - **stage three** the stacks have been optimized, and the program can be queried
 
