@@ -31,12 +31,17 @@ batches = {
 def loss_fn(pred, target_idx):
     return - torch.log(torch.nn.functional.softmax(pred)[target_idx])
 
-program = [['exec', 'matmul_backward'],
-           ['exec', 'add'],
-           ['exec', 'relu'],
-           ['blueprint', [['integer', 28], ['integer', 28], ['integer', 10], ['exec', 'shape_3d'], ['exec', 'folded_normal']]],
-           ['blueprint', [['integer', 10], ['exec', 'shape_1d'], ['exec', 'folded_normal']]],
-           ]
+program = [
+			['exec', 'add'],
+			['blueprint', [['exec', 'folded_normal'], ['exec', 'shape_1d'], ['integer', 10]]],
+			['exec', 'relu'],
+			['exec', 'matmul_backward'],
+			['blueprint', [['exec', 'folded_normal'], ['exec', 'shape_3d'], ['integer', 28], ['integer', 28], ['integer', 10]]],
+			['exec', 'add'],
+			['tensor', torch.autograd.Variable(torch.Tensor([1]))]
+			]
+
+#import random; random.shuffle(program); print(program)
 
 ind = tush.Tush(program)
 val_loss = ind.optimize(batches['train'], loss_fn,

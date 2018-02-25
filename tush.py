@@ -5,17 +5,9 @@ import utils
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		self.reg_strength = 0 #0.0001
+		self.reg_strength = 0.0001
 		self.constraint = {'input': True, 'variable': True}
 		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
-
-	def populate_input(self, stacks, input_instructions):
-		for stack, instr in input_instructions:
-			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
-				val = torch.autograd.Variable(instr, requires_grad=True) # does not actually require grad, but turned on for debugging
-			else: val = instr
-			stacks[stack].insert(0, {'val': val, 'input_dep': True, 'variable_dep': False})
-		return stacks
 
 	def stage_one(self, orig_program):
 		''' Replace blueprints with variables '''
@@ -23,7 +15,7 @@ class Tush(object):
 		variables = []
 		for stack, instr in orig_program:
 			if stack != 'blueprint':
-				program.append([stack,{'val': instr, 'input_dep': False, 'variable_dep': False}])
+				program.append({'val': instr, 'input_dep': False, 'variable_dep': False, 'stack': stack})
 			else:
 				out = Tush(instr)
 				out.constraint['input'] = False
@@ -32,35 +24,50 @@ class Tush(object):
 				if not out: continue
 				else:
 					variables.append(torch.autograd.Variable(out[0]['val'].data, requires_grad=True))
-					program.append(['tensor', {'val': variables[-1], 'input_dep': False, 'variable_dep': True}])
+					program.append({'val': variables[-1], 'input_dep': False, 'variable_dep': True, 'stack': 'tensor'})
 		stacks = {stack: [] for stack in self.stack_types}
-		for stack, item in program:
-			stacks[stack].append(item)
+		for item in program:
+			stacks['exec'].append(item)
 		return stacks, variables
 
 	def execute_step(self, stacks):
-		exec_item = stacks['exec'].pop(0)
-		instr, instr_inp_dep, instr_var_dep = exec_item['val'], exec_item['input_dep'], exec_item['variable_dep']
+		this_item = stacks['exec'].pop()
+		stack_name = this_item['stack']
+		if stack_name != 'exec':
+			if stack_name == 'code': assert True, "This hasn't been implemented yet"
+			else: stacks[stack_name].append(this_item)
+			return stacks
+		instr, instr_inp_dep, instr_var_dep = this_item['val'], this_item['input_dep'], this_item['variable_dep']
 		inputs = []
 		in_types = Instructions[instr]['in_types']
 		def put_back():
-			for i,t in reversed(list(zip(inputs, in_types[:len(inputs)]))):
-				if t != 'stacks': stacks[t].insert(0,i)
+			for i in reversed(inputs):
+				if i['stack'] is None: continue # case where argument is 'stacks'
+				stacks[i['stack']].append(i)
 		for needed in in_types:
 			if needed == 'stacks':
-				inputs.append({'val': stacks, 'input_dep': False, 'variable_dep': False}) # stacks object is nominally independent
+				inputs.append({'val': stacks, 'input_dep': False, 'variable_dep': False, 'stack': None}) # stacks object is nominally independent
 				continue
 			if not stacks[needed]:
 				put_back()
 				return stacks
-			inputs.append(stacks[needed].pop(0))
+			inputs.append(stacks[needed].pop())
 		try:
 			out = Instructions[instr]['fn'](*[i['val'] for i in inputs])
 			inp_dep = any([i['input_dep'] for i in inputs]) or instr_inp_dep
 			var_dep = any([i['variable_dep'] for i in inputs]) or instr_var_dep
-			stacks[Instructions[instr]['out_type']].append({'val': out, 'input_dep': inp_dep, 'variable_dep': var_dep})
+			out_stack = Instructions[instr]['out_type']
+			stacks[out_stack].append({'val': out, 'stack': out_stack, 'input_dep': inp_dep, 'variable_dep': var_dep})
 		except (ValueError, RuntimeError):
 			put_back()
+		return stacks
+
+	def populate_input(self, stacks, input_instructions):
+		for stack, instr in input_instructions:
+			if stack == 'tensor' and type(instr) != torch.autograd.variable.Variable:
+				val = torch.autograd.Variable(torch.Tensor(instr), requires_grad=True) # does not actually require grad, but turned on for debugging
+			else: val = instr
+			stacks['exec'].append({'val': val, 'input_dep': True, 'variable_dep': False, 'stack': stack})
 		return stacks
 
 	def execute_program(self, stacks):
@@ -72,10 +79,11 @@ class Tush(object):
 		if con_inp is None: con_inp = self.constraint['input']
 		if con_var is None: con_var = self.constraint['variable']
 		for item in reversed(stacks['tensor']):
-			tensor, inp_dep, var_dep = item['val'], item['input_dep'], item['variable_dep']
+			orig_tensor, inp_dep, var_dep = item['val'], item['input_dep'], item['variable_dep']
 			if con_inp and not inp_dep: continue
 			if con_var and not var_dep: continue
-			if len(shape) > len(tensor.shape): continue
+			if len(shape) > len(orig_tensor.shape): continue
+			tensor = orig_tensor.permute([x[0] for x in sorted(zip(range(len(orig_tensor.shape)), orig_tensor.shape), key=lambda x:-x[1])])
 			if not all([a<=b for a,b in zip(shape, tensor.shape[:len(shape)])]): continue
 			out = tensor # drop last indices, to have same num dims as shape
 			for i, l in enumerate(shape): out = out.narrow(i,0,l)

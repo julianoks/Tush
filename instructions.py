@@ -11,19 +11,28 @@ def duplicate(stacks, stack_name):
 		stacks[stack_name].append(stacks[stack_name][0])
 	raise ValueError
 
+def custom_matmul(x1,x2):
+	''' matmul with semantics to dot along as many dimensions as possible '''
+	a,b = list(reversed(x1.shape)), list(x2.shape)
+	if a[0] != b[0]: raise ValueError
+	while len(a)>1 and len(b)>1 and a[1]==b[1]:
+		a[0] *= a.pop(1)
+		b[0] *= b.pop(1)
+	return torch.matmul(x1.view(*reversed(a)), x2.view(*b))
+
 Instructions = {
 	
 	'matmul': {
 		'in_types': ['tensor', 'tensor'],
 		'out_type': 'tensor',
-		'fn': lambda a,b: torch.matmul(a,b),
+		'fn': lambda a,b: custom_matmul(a,b),
 		'stochastic': False
 	},
 
 	'matmul_backward': {
 		'in_types': ['tensor', 'tensor'],
 		'out_type': 'tensor',
-		'fn': lambda a,b: torch.matmul(b,a),
+		'fn': lambda a,b: custom_matmul(b,a),
 		'stochastic': False
 	},
 
