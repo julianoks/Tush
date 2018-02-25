@@ -37,13 +37,9 @@ program = [
 			['exec', 'relu'],
 			['exec', 'matmul_backward'],
 			['blueprint', [['exec', 'folded_normal'], ['exec', 'shape_3d'], ['integer', 28], ['integer', 28], ['integer', 10]]],
-			['exec', 'add'],
-			['tensor', torch.autograd.Variable(torch.Tensor([1]))]
 			]
 
-#import random; random.shuffle(program); print(program)
-
 ind = tush.Tush(program)
-val_loss = ind.optimize(batches['train'], loss_fn,
-                        validation_batch=batches['validation'])
-print("Validation loss", val_loss)
+ind.stage_two(batches['train'], loss_fn)
+results = ind.stage_three(validation_batch=batches['validation'], loss_fn=loss_fn)
+print("Results:", results)

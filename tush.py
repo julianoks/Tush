@@ -1,9 +1,11 @@
 import torch
 from instructions import Instructions
 import utils
+import numpy as np
 
 class Tush(object):
 	def __init__(self, program):
+		self.print_every = 10000
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
 		self.reg_strength = 0.0001
 		self.constraint = {'input': True, 'variable': True}
@@ -88,7 +90,7 @@ class Tush(object):
 			out = tensor # drop last indices, to have same num dims as shape
 			for i, l in enumerate(shape): out = out.narrow(i,0,l)
 			for i in range(len(shape), len(tensor.shape)): out = out.narrow(i,0,1)
-			return out
+			return out.view(*shape)
 		if con_inp or con_var:
 			return self.get_tensor_out(stacks, shape, con_inp=False, con_var=False)
 		return torch.autograd.Variable(torch.ones(shape)) # if no valid output, return ones, so as to maximize entropy
@@ -109,8 +111,9 @@ class Tush(object):
 		loss /= len(ys)
 		return loss
 
-	def optimize(self, train_batch, loss_fn, validation_batch=None):
+	def stage_two(self, train_batch, loss_fn, validation_batch=None):
 		'''
+		Stage two (optimization)
 		args:
 			train_batch - a list of (x,y) pairs such that
 							x is a pair of (program_input, output_shape) and
@@ -118,7 +121,6 @@ class Tush(object):
 								program_input is a list of instructions
 								output_shape gives the shape to extract from the tensor stack
 			loss_fn - loss function with two inputs: (predicted, target) -> data_loss
-			validation_batch - optional dataset in the same format as batches, on which to run and return the validation loss
 		returns:
 			if validation_batch is used, then returns data loss on the validation data.
 		note:
@@ -129,10 +131,21 @@ class Tush(object):
 			for i, (xs, ys) in enumerate(train_batch):
 				optimizer.zero_grad()
 				loss = self.get_loss(xs, ys, loss_fn) # data loss
-				if 0==i%500: print("\nStep:", i, "\nData Loss:", loss); print(self.blueprint_vars)
+				if self.print_every and 0==i%self.print_every:
+					print("\nStep:", i, "\nData Loss:", loss); print(self.blueprint_vars)
 				loss += self.reg_strength * sum([(x**2).view(-1).sum() for x in self.blueprint_vars]) # reg. loss
 				loss.backward()
 				optimizer.step()
 		else: print("No variables to optimize! No optimization took place!")
-		if validation_batch:
-			return sum([self.get_loss(xs, ys, loss_fn) for xs,ys in validation_batch]) / len(validation_batch)
+
+	def stage_three(self, validation_batch, loss_fn=None, classification=True):
+		results = {}
+		yhats = [self.get_outputs(xs) for xs,_ in validation_batch]
+		ys = [y for _,y in validation_batch]
+		if classification:
+			accuracy = [np.array([yh.data.tolist() for yh in yhat]).argmax(1)==y for yhat, y in zip(yhats, ys)]
+			accuracy = np.mean(accuracy)
+			results['accuracy'] = accuracy
+		if loss_fn:
+			results['loss'] = float(np.mean([[loss_fn(syh,sy) for syh,sy in zip(yhat,y)] for yhat,y in zip(yhats, ys)]))
+		return results
