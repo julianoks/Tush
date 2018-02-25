@@ -44,10 +44,16 @@ A Tush program has three stages:
 - **stage two** is a training phase that optimizes some Variables
 - **stage three** the stacks have been optimized, and the program can be queried
 
-### Stage One
+### Querying Program for Output
+
+
+### Stages
+
+#### Stage One
 The goal of stage one is to map a Tush program to a collection of stacks.
 
 First, we map each blueprint to a tensor Variable. This is done by executing the blueprint's value (which is a program) in a "fresh" stack, and picking the top tensor off the tensor stack. It is then marked as a Variable to be optimized.
 
 At this point, we have a list of items, without blueprints. We finally place each item's `value` on its corresponding stack, as marked by the item's `type`. Along with the value, we also indicate whether it is dependent on an input, and whether it's dependent on a Variable. Both of these indications are set to false during this stage, except for Variables produced from blueprints, which are marked as dependent on a Variable.
 
+#### Stage Two

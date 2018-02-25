@@ -5,7 +5,7 @@ import utils
 class Tush(object):
 	def __init__(self, program):
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
-		self.reg_strength = 0.0001
+		self.reg_strength = 0 #0.0001
 		self.constraint = {'input': True, 'variable': True}
 		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
 
@@ -64,7 +64,9 @@ class Tush(object):
 		return stacks
 
 	def execute_program(self, stacks):
-		while stacks['exec']: stacks = self.execute_step(stacks)
+		while stacks['exec']:
+			stacks = self.execute_step(stacks)
+		if torch.randn(1)[0] < 0.5: return None
 		return stacks
 
 	def get_tensor_out(self, stacks, shape, con_inp=None, con_var=None):
