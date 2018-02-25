@@ -66,7 +66,6 @@ class Tush(object):
 	def execute_program(self, stacks):
 		while stacks['exec']:
 			stacks = self.execute_step(stacks)
-		if torch.randn(1)[0] < 0.5: return None
 		return stacks
 
 	def get_tensor_out(self, stacks, shape, con_inp=None, con_var=None):
