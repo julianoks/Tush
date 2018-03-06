@@ -3,12 +3,12 @@ import utils
 
 def get_shape(stacks):
 	if stacks['tensor']:
-		return stacks['tensor'][0]['val'].shape
+		return stacks['tensor'][-1]['val'].shape
 	raise ValueError
 
 def duplicate(stacks, stack_name):
 	if stacks[stack_name]:
-		stacks[stack_name].append(stacks[stack_name][0])
+		stacks[stack_name].append(stacks[stack_name][-1])
 	raise ValueError
 
 def custom_matmul(x1,x2):
@@ -47,6 +47,27 @@ Instructions = {
 		'in_types': ['tensor'],
 		'out_type': 'tensor',
 		'fn':  lambda a: torch.nn.functional.relu(a),
+		'stochastic': False
+	},
+
+	'conv1d': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.nn.functional.conv1d(a,b,stride=1,padding=0),
+		'stochastic': False
+	},
+
+	'conv2d': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.nn.functional.conv2d(a,b,stride=1,padding=0),
+		'stochastic': False
+	},
+
+	'conv3d': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.nn.functional.conv3d(a,b,stride=1,padding=0),
 		'stochastic': False
 	},
 
@@ -135,6 +156,9 @@ Instruction_probabilities = {
 	'matmul_backward': 10,
 	'add': 15,
 	'relu': 10,
+	'conv1d': 5,
+	'conv2d': 5,
+	'conv3d': 5,
 	'folded_normal': 15,
 	'uniform': 15,
 	'get_shape': 2,
