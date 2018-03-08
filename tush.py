@@ -76,10 +76,11 @@ class Tush(object):
 		tensor_counter = 0
 		general_counter = 0
 		while stacks['exec']:
-			instruction = Instructions[stacks['exec'][-1]['val']]
-			if 'tensor' in instruction['in_types']:
-				tensor_counter += 1
-			general_counter += 1
+			if stacks['exec'][-1]['stack'] == 'exec':
+				instruction = Instructions[stacks['exec'][-1]['val']]
+				if 'tensor' in instruction['in_types']:
+					tensor_counter += 1
+				general_counter += 1
 			stacks = self.execute_step(stacks)
 		return stacks
 
