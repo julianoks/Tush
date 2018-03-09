@@ -148,6 +148,13 @@ Instructions = {
 		'stochastic': False
 	},
 
+	'dup_bool': {
+		'in_types': ['stacks'],
+		'out_type': 'exec',
+		'fn': lambda stacks: duplicate(stacks, 'bool'),
+		'stochastic': False
+	},
+
 }
 
 
@@ -170,4 +177,5 @@ Instruction_probabilities = {
 	'dup_tensor': 5,
 	'dup_shape': 5,
 	'dup_integer': 5,
+	'dup_bool': 5
 }

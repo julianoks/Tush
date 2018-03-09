@@ -6,7 +6,7 @@ import numpy as np
 class Tush(object):
 	def __init__(self, program):
 		self.print_every = 10000
-		self.stack_types = ['exec', 'tensor', 'shape', 'integer']
+		self.stack_types = ['exec', 'tensor', 'shape', 'integer', 'bool']
 		self.reg_strength = 0.0001
 		self.constraint = {'input': True, 'variable': True}
 		self.stage_one_stacks, self.blueprint_vars = self.stage_one(program)
