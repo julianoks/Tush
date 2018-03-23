@@ -155,6 +155,41 @@ Instructions = {
 		'stochastic': False
 	},
 
+	'bool_and' : {
+		'in_types': ['bool', 'bool'],
+		'out_type': 'bool',
+		'fn': lambda a,b: a and b,
+		'stochastic' : False
+	},
+
+	'bool_or': {
+		'in_types': ['bool', 'bool'],
+		'out_type': 'bool',
+		'fn': lambda a,b: a or b,
+		'stochastic' : False
+	},
+
+	'bool_not' : {
+		'in_types': ['bool'],
+		'out_type': 'bool',
+		'fn': lambda a: not a,
+		'stochastic' : False
+	},
+
+	'bool_xor' : {
+		'in_types': ['bool', 'bool'],
+		'out_type': 'bool',
+		'fn': lambda a,b: a ^ b,
+		'stochastic' : False
+	},
+
+	'bool_from_int' : {         #Could this be too biased for True?
+		'in_types' : ['integer'],
+		'out_type' : 'bool',
+		'fn': lambda a: bool(a),
+		'stochastic' : False
+	},
+
 }
 
 
@@ -177,5 +212,10 @@ Instruction_probabilities = {
 	'dup_tensor': 5,
 	'dup_shape': 5,
 	'dup_integer': 5,
-	'dup_bool': 5
+	'dup_bool': 5,
+	'bool_and': 3,
+	'bool_or': 3,
+	'bool_not': 3,
+	'bool_xor': 3,
+	'bool_from_int': 1,
 }
