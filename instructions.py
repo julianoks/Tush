@@ -3,27 +3,36 @@ import utils
 
 def get_shape(stacks):
 	if stacks['tensor']:
-		return stacks['tensor'][0]['val'].shape
+		return stacks['tensor'][-1]['val'].shape
 	raise ValueError
 
 def duplicate(stacks, stack_name):
 	if stacks[stack_name]:
-		stacks[stack_name].append(stacks[stack_name][0])
+		stacks[stack_name].append(stacks[stack_name][-1])
 	raise ValueError
+
+def custom_matmul(x1,x2):
+	''' matmul with semantics to dot along as many dimensions as possible '''
+	a,b = list(reversed(x1.shape)), list(x2.shape)
+	if a[0] != b[0]: raise ValueError
+	while len(a)>1 and len(b)>1 and a[1]==b[1]:
+		a[0] *= a.pop(1)
+		b[0] *= b.pop(1)
+	return torch.matmul(x1.view(*reversed(a)), x2.view(*b))
 
 Instructions = {
 	
 	'matmul': {
 		'in_types': ['tensor', 'tensor'],
 		'out_type': 'tensor',
-		'fn': lambda a,b: torch.matmul(a,b),
+		'fn': lambda a,b: custom_matmul(a,b),
 		'stochastic': False
 	},
 
 	'matmul_backward': {
 		'in_types': ['tensor', 'tensor'],
 		'out_type': 'tensor',
-		'fn': lambda a,b: torch.matmul(b,a),
+		'fn': lambda a,b: custom_matmul(b,a),
 		'stochastic': False
 	},
 
@@ -38,6 +47,27 @@ Instructions = {
 		'in_types': ['tensor'],
 		'out_type': 'tensor',
 		'fn':  lambda a: torch.nn.functional.relu(a),
+		'stochastic': False
+	},
+
+	'conv1d': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.nn.functional.conv1d(a,b,stride=1,padding=0),
+		'stochastic': False
+	},
+
+	'conv2d': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.nn.functional.conv2d(a,b,stride=1,padding=0),
+		'stochastic': False
+	},
+
+	'conv3d': {
+		'in_types': ['tensor', 'tensor'],
+		'out_type': 'tensor',
+		'fn': lambda a,b: torch.nn.functional.conv3d(a,b,stride=1,padding=0),
 		'stochastic': False
 	},
 
@@ -118,6 +148,48 @@ Instructions = {
 		'stochastic': False
 	},
 
+	'dup_bool': {
+		'in_types': ['stacks'],
+		'out_type': 'exec',
+		'fn': lambda stacks: duplicate(stacks, 'bool'),
+		'stochastic': False
+	},
+
+	'bool_and' : {
+		'in_types': ['bool', 'bool'],
+		'out_type': 'bool',
+		'fn': lambda a,b: a and b,
+		'stochastic' : False
+	},
+
+	'bool_or': {
+		'in_types': ['bool', 'bool'],
+		'out_type': 'bool',
+		'fn': lambda a,b: a or b,
+		'stochastic' : False
+	},
+
+	'bool_not' : {
+		'in_types': ['bool'],
+		'out_type': 'bool',
+		'fn': lambda a: not a,
+		'stochastic' : False
+	},
+
+	'bool_xor' : {
+		'in_types': ['bool', 'bool'],
+		'out_type': 'bool',
+		'fn': lambda a,b: a ^ b,
+		'stochastic' : False
+	},
+
+	'bool_from_int' : {         #Could this be too biased for True?
+		'in_types' : ['integer'],
+		'out_type' : 'bool',
+		'fn': lambda a: bool(a),
+		'stochastic' : False
+	},
+
 }
 
 
@@ -126,6 +198,9 @@ Instruction_probabilities = {
 	'matmul_backward': 10,
 	'add': 15,
 	'relu': 10,
+	'conv1d': 5,
+	'conv2d': 5,
+	'conv3d': 5,
 	'folded_normal': 15,
 	'uniform': 15,
 	'get_shape': 2,
@@ -137,4 +212,10 @@ Instruction_probabilities = {
 	'dup_tensor': 5,
 	'dup_shape': 5,
 	'dup_integer': 5,
+	'dup_bool': 5,
+	'bool_and': 3,
+	'bool_or': 3,
+	'bool_not': 3,
+	'bool_xor': 3,
+	'bool_from_int': 1,
 }

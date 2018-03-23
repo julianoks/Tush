@@ -3,11 +3,12 @@ import random
 
 class program_generator(object):
 	PARAMS = {
-		'default_type_probs': {'exec': 5, 'integer': 2, 'blueprint': 3},
+		'default_type_probs': {'exec': 5, 'integer': 2, 'blueprint': 3, 'bool' : 1},
 		'instructions': instructions.Instructions,
 		'instruction_probs': instructions.Instruction_probabilities,
 		'integer_generator': lambda : 2**random.randint(0,6),
-		'blueprint_size': lambda : random.randint(15,25)
+		'blueprint_size': lambda : random.randint(15,25),
+		'bool_generator': lambda : random.choice([True, False])
 	}
 
 	def __init__(self, type_probs=None):
@@ -27,6 +28,8 @@ class program_generator(object):
 			return ['integer', self.PARAMS['integer_generator']()]
 		elif stack == 'blueprint':
 			return ['blueprint', None]
+		elif stack == 'bool':
+			return ['bool', self.PARAMS['bool_generator']()]
 		
 	def generate_blocks(self, n, use_blueprints):
 		blocks = []
