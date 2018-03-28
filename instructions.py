@@ -190,6 +190,14 @@ Instructions = {
 		'stochastic' : False
 	},
 
+	'if_else' : {
+	'in_types' : ['bool','exec', 'exec'],
+	'out_type' : 'exec',
+	'fn': lambda b, e1, e2 : e1 if b == True else e2,
+	'stochastic' : False
+	},
+
+
 }
 
 
@@ -218,4 +226,5 @@ Instruction_probabilities = {
 	'bool_not': 3,
 	'bool_xor': 3,
 	'bool_from_int': 1,
+	'if_else' : 5
 }
