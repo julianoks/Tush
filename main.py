@@ -1,3 +1,4 @@
+import cv2
 import tush
 import programmer
 import torch

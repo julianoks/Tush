@@ -5,7 +5,7 @@ import numpy as np
 
 class Tush(object):
 	def __init__(self, program):
-		self.print_every = 10000
+		self.print_every = 10
 		self.stack_types = ['exec', 'tensor', 'shape', 'integer', 'bool']
 		self.reg_strength = 0.0001
 		self.constraint = {'input': True, 'variable': True}

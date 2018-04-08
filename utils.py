@@ -1,6 +1,8 @@
+from __future__ import division
 import torch
 import random, copy
 from functools import reduce
+
 
 class random_sampler(object):
 	def __init__(self, probs):
