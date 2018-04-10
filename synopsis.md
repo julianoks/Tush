@@ -3,7 +3,7 @@ Tush is a Push programming language that includes tensor operations.
 Like Push, Tush is not intended to be written by human programmers, but rather to be used as a representation for evolving programs.
 A further deviation from traditional Push implementions, Tush programs may experience an "epigenetic" or "experiential" learning phase, 
 where numeric values are refined by gradient descent. This document aims to introduce the Tush representation and TushGP system, 
-discuss the Push family of languages, computational graphs, Tush and "experiential" learning, and finally some exciting capabilities and directions for the Tush system.
+discuss the Push family of languages, computational graphs, Tush and "experiential" learning, and finally identify experiments and directions for the Tush system.
 
 # Push Languages
 Push is a family of languages intended for evolutionary search. 
@@ -98,3 +98,9 @@ Backpropagation starts from the loss, and trainable variables are updated.
 Fortunately, the computational graph is implicitly constructed by the [Pytorch](http://pytorch.org/about/) system, which keeps track of the trace/graph of tensor values; Tush is not responsible for any bookkeeping.
 
 Although Push execution is sometimes understood as a series of instruction executions, it is better understood as a state machine. Another interpretation is modeling the execution as a static single assignment form (SSA). It is perhaps more intuititive to understand the derivation of a computational graph from a Tush execution when the execution is modeled as SSA.
+
+# Future
+Tush is still in development, and we look forward to running our first experiments (very soon). 
+For our first experiment, we'd like to evolve simple classifiers, then approach more complicated problems, like those involving data structures, preprocessing, or multiple datasets.
+
+We've also identified several areas for future research. First, we're interested in creating some mechanism to encourage modularity. Second, we'd like to allow a program to have more control over training (eg define its own loss(es) and optimization routines).
