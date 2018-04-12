@@ -1,17 +1,19 @@
+import cv2
 import tush
 import programmer
 import torch
+from scrubber import data_wrangler
 
 from torchvision import datasets, transforms
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('data', train=True, download=True,
                    transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])), batch_size=1, shuffle=True)
-
+ 
 test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('data', train=False,
                    transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])), batch_size=1, shuffle=True)
-
-
+ 
+ 
 def make_batches(loader, shape, max_batches=None, use_cuda=False):
     batch = []
     for data, target in loader:
@@ -21,7 +23,7 @@ def make_batches(loader, shape, max_batches=None, use_cuda=False):
         if len(batch) >= max_batches:
             break
     return batch
-
+ 
 batches = {
     'train': make_batches(train_loader, [10], max_batches=100000),
     'validation': make_batches(test_loader, [10], max_batches=10000),

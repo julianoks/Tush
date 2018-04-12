@@ -1,3 +1,4 @@
+import cv2
 import instructions, utils
 import random
 
@@ -45,3 +46,6 @@ class program_generator(object):
 			if stack == 'blueprint':
 				blocks[i][1] = self.generate_blocks(self.PARAMS['blueprint_size'](), False)
 		return blocks
+	
+	
+
