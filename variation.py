@@ -6,14 +6,21 @@ from utils import random_sampler
 from programmer import program_generator
 from scrubber import data_wrangler
 import numpy as np
+import logging
+from pathos.multiprocessing import Pool
+import warnings
+warnings.filterwarnings("ignore")
 
 
 
+logging.basicConfig(filename='tush.log', level=logging.DEBUG,
+                            format='%(asctime)s:%(levelname)s:%(message)s\n')
 class evolution(object):
-    def __init__(self, program_depth=5, populatin_size=6):
+    def __init__(self, program_depth=5, populatin_size=6, mutation_prob=None):
         assert populatin_size%2==0, "Genesis population size must be even"
         
-        
+        self.mutation_prob=0.4
+        if mutation_prob: self.mutation_prob=mutation_prob
         print "Generating genesis population"
         
         self.genesis_block=[]
@@ -23,6 +30,8 @@ class evolution(object):
         print "Genesis population generated"
         
         self.gene_generator_object=program_generator()
+        self.blueprint_size=lambda: random.randint(15,25)
+        
 #         self.sampler=random_sampler(mutation_prob)
 #         self.blueprint_size=lambda: random.randint(15,25)
 #         
@@ -37,7 +46,7 @@ class evolution(object):
 #         winners=self.tournament_selection(children, batches)
 #         self.two_point_crossover(winners)
     
-    def evaluation(self, batches, programs):
+    def evaluation(self, batches, programs, parallel=False):
         
         def loss_fn(pred, target_idx):
             return - torch.log(torch.nn.functional.softmax(pred)[target_idx])
@@ -48,10 +57,21 @@ class evolution(object):
             results = ind.stage_three(validation_batch=batches['validation'], loss_fn=loss_fn)
             
             return results
-        
-        accuracy=[]
-        for prog in enumerate(programs):
-            accuracy.append(train_validate(prog, loss_fn, batches)['accuracy'])
+        for prog in programs: logging.debug(prog)
+        a=lambda x: train_validate(x, loss_fn, batches)['accuracy']
+        if parallel:
+            
+           
+            p=Pool(4)
+            accuracy=p.map(a, programs)
+            p.close()
+            p.join()
+        else:
+            accuracy=map(a, programs)
+
+#         for _,prog in enumerate(programs):
+#             logging.debug(prog)
+#             accuracy.append(train_validate(prog, loss_fn, batches)['accuracy'])
             
         return accuracy
         
@@ -73,8 +93,8 @@ class evolution(object):
            
         
     
-    def uniform_mutation(self, children, mutation_prob_rate=0.15):
-        
+    def uniform_mutation(self, children):
+        mutation_prob_rate=self.mutation_prob
         for i, child in enumerate(children):
             if random.random()<=mutation_prob_rate:
                 
@@ -108,10 +128,10 @@ class evolution(object):
     def two_point_crossover(self, parents):
         assert len(parents)==2, "Only two parents required"
         
-        pt_1=random.randint(0,len(parents[0])-1)
-        pt_2=random.randint(0,len(parents[0])-1)
+        pt_1=random.randint(1,len(parents[0])-1)
+        pt_2=random.randint(1,len(parents[0])-1)
         
-        while abs(pt_1-pt_2)<1: pt_2=random.randint(0,len(parents[0])-1)
+        while abs(pt_1-pt_2)<2: pt_2=random.randint(0,len(parents[0])-1)
         
         crossover_pt_1=min(pt_1,pt_2)
         crossover_pt_2=max(pt_1,pt_2)
@@ -121,21 +141,21 @@ class evolution(object):
         tail=[]
         
         children=[]
-        children.append([parent[0][:crossover_pt_1], parent[1][crossover_pt_1:crossover_pt_2],parent[0][crossover_pt_2:]])
-        children.append([parent[1][:crossover_pt_1], parent[0][crossover_pt_1:crossover_pt_2],parent[1][crossover_pt_2:]])
+        children.append(parents[0][:crossover_pt_1]+parents[1][crossover_pt_1:crossover_pt_2]+parents[0][crossover_pt_2:])
+        children.append(parents[1][:crossover_pt_1]+parents[0][crossover_pt_1:crossover_pt_2]+parents[1][crossover_pt_2:])
         
         return children
         
         
-    def start_evolution(self, batches, selection_with_rep=True, cur_gen=0, gen_count=50, programs=None, target_acc=0.9):
+    def start_evolution(self, batches, selection_with_rep=True, cur_gen=0, gen_count=200, programs=None, target_acc=0.9):
         
         
         
-        if i==0: programs=self.genesis_block
+        if cur_gen==0: programs=self.genesis_block
         assert programs!=None, "Genome pool unavailable"
         
         accuracy=self.evaluation(batches, programs)
-        
+        print "\n\nAccuracy:\t%f" %(max(accuracy))
         if max(accuracy)>=target_acc:
             print "\nTarget achieved at generation %d" %(cur_gen+1)
             return programs[np.argmax(accuracy)], max(accuracy)
@@ -180,15 +200,18 @@ class evolution(object):
                     
                     parents.append(parent_2)
                 
-                    children+self.two_point_crossover(parents)
+                    children.extend(self.two_point_crossover(parents))
             
             
             mutated_children=self.uniform_mutation(children)
             
-            return self.start_evolution(batches, cur_gen=cur_gen+1, mutated_children)
+            return self.start_evolution(batches, selection_with_rep, cur_gen+1, gen_count, mutated_children, target_acc)
         
         return programs, accuracy
         pass
+a=evolution(mutation_prob=0.6)
+_, acc=a.start_evolution(data_wrangler().get_wine_loaders())
+print "\n\n\nAcc:\t", acc
     
 
             
