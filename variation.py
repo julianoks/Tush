@@ -2,6 +2,7 @@ import cv2
 import tush
 import random
 import torch
+import os
 import sys
 from utils import random_sampler
 from programmer import program_generator
@@ -12,9 +13,9 @@ from pathos.multiprocessing import Pool
 import warnings
 warnings.filterwarnings("ignore")
 
+log_file=os.getcwd().rsplit("/",1)[0]+'/logs/tush-'+sys.argv[5]+'.log'
 
-
-logging.basicConfig(filename='tush.log', level=logging.DEBUG,
+logging.basicConfig(filename=log_file, level=logging.DEBUG,
                             format='%(asctime)s:%(levelname)s:%(message)s\n')
 class evolution(object):
     def __init__(self, program_depth=5, population_size=6, mutation_prob=None, par=None):

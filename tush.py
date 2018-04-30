@@ -4,8 +4,11 @@ import utils
 import numpy as np
 import logging
 from symbol import except_clause
+import sys
+import os
+log_file=os.getcwd().rsplit("/",1)[0]+'/logs/tush-'+sys.argv[5]+'.log'
 
-logging.basicConfig(filename='tush.log', level=logging.DEBUG,
+logging.basicConfig(filename=log_file, level=logging.DEBUG,
                             format='TUSH:\t%(asctime)s:%(levelname)s:%(message)s\n')
 
 class Tush(object):
