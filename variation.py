@@ -2,6 +2,7 @@ import cv2
 import tush
 import random
 import torch
+import sys
 from utils import random_sampler
 from programmer import program_generator
 from scrubber import data_wrangler
@@ -16,37 +17,23 @@ warnings.filterwarnings("ignore")
 logging.basicConfig(filename='tush.log', level=logging.DEBUG,
                             format='%(asctime)s:%(levelname)s:%(message)s\n')
 class evolution(object):
-    def __init__(self, program_depth=5, populatin_size=6, mutation_prob=None):
-        assert populatin_size%2==0, "Genesis population size must be even"
-        
+    def __init__(self, program_depth=5, population_size=6, mutation_prob=None, par=None):
+        assert population_size%2==0, "Genesis population size must be even"
+        self.parallel=par
         self.mutation_prob=0.4
         if mutation_prob: self.mutation_prob=mutation_prob
         print "Generating genesis population"
         
         self.genesis_block=[]
-        for _ in range(populatin_size):
+        for _ in range(population_size):
             self.genesis_block.append(program_generator().generate_program(program_depth))
             
         print "Genesis population generated"
         
         self.gene_generator_object=program_generator()
         self.blueprint_size=lambda: random.randint(15,25)
-        
-#         self.sampler=random_sampler(mutation_prob)
-#         self.blueprint_size=lambda: random.randint(15,25)
-#         
-#         if current_gen==0:
-#             self.gene_generator_object=program_generator()
-#             self.type_params=self.gene_generator_object.PARAMS['default_type_probs']
-#         else:
-#             self.gene_generator_object=program_generator(type_probs_map)
-#             self.type_params=type_probs_map
-#         
-#         children=self.uniform_mutation(2*tournament_size, program_depth)
-#         winners=self.tournament_selection(children, batches)
-#         self.two_point_crossover(winners)
     
-    def evaluation(self, batches, programs, parallel=False):
+    def evaluation(self, batches, programs):
         
         def loss_fn(pred, target_idx):
             return - torch.log(torch.nn.functional.softmax(pred)[target_idx])
@@ -59,20 +46,14 @@ class evolution(object):
             return results
         for prog in programs: logging.debug(prog)
         a=lambda x: train_validate(x, loss_fn, batches)['accuracy']
-        if parallel:
+        if self.parallel=='True':
             
            
-            p=Pool(4)
+            p=Pool(len(programs))
             accuracy=p.map(a, programs)
-            p.close()
-            p.join()
-        else:
-            accuracy=map(a, programs)
 
-#         for _,prog in enumerate(programs):
-#             logging.debug(prog)
-#             accuracy.append(train_validate(prog, loss_fn, batches)['accuracy'])
-            
+        else:
+            accuracy=map(a, programs)            
         return accuracy
         
     def k_way_tournament_selection(self, genome_pool, accuracy, k=2):
@@ -209,9 +190,17 @@ class evolution(object):
         
         return programs, accuracy
         pass
-a=evolution(mutation_prob=0.6)
-_, acc=a.start_evolution(data_wrangler().get_wine_loaders())
-print "\n\n\nAcc:\t", acc
-    
+# a=evolution(mutation_prob=0.6)
+# _, acc=a.start_evolution(data_wrangler().get_wine_loaders())
+# print "\n\n\nAcc:\t", acc
+
+
+#    Args: dataset, mutation_prob, population, parallel
+
+if __name__=='__main__':
+    if(sys.argv[1]=='wine'):
+        _, acc=evolution(mutation_prob=float(sys.argv[2]), population_size=int(sys.argv[3]), par=sys.argv[4]).start_evolution(data_wrangler().get_wine_loaders())
+    elif(sys.argv[1]=='mnist'):
+        _, acc=evolution(mutation_prob=float(sys.argv[2]), population_size=int(sys.argv[3]), par=sys.argv[4]).start_evolution(data_wrangler().get_mnist_loaders())
 
             
