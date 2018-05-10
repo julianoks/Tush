@@ -8,7 +8,8 @@ def get_shape(stacks):
 
 def duplicate(stacks, stack_name):
 	if stacks[stack_name]:
-		stacks[stack_name].append(stacks[stack_name][-1])
+		if not (stack_name=='exec' and stacks[stack_name][-1]['val']=='dup_exec'):
+			stacks[stack_name].append(stacks[stack_name][-1])
 	raise ValueError
 
 def custom_matmul(x1,x2):
@@ -192,7 +193,8 @@ Instructions = {
 
 	'if_else' : {
 	'in_types' : ['bool','exec', 'exec'],
-	'out_type' : 'exec',
+# 	'out_type' : 'exec',
+	'out_type' : 'chk_stack',
 	'fn': lambda b, e1, e2 : e1 if b == True else e2,
 	'stochastic' : False
 	},
